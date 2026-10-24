@@ -17,3 +17,32 @@ where topic_id is not null and topic_title is null;
 ```
 
 The first query should return `topic_title`. The second should return zero for existing sessions whose topic still exists in the catalog. New session titles are populated by a database trigger; authenticated clients have no insert/update privilege for that field. The migration changes local source only until run in the remote SQL Editor.
+
+## Personalized topic rotation
+
+After all earlier migrations, apply `20261024_personalized_topic_rotation.sql` in the SQL Editor. It adds 71 stable-ID curated prompts and metadata for conversation situation, formality, difficulty, and interest keywords. Existing sample rows receive metadata only when they still have the original defaults; seed ID conflicts do not replace edited content.
+
+The migration creates `user_topic_preferences` with owner-only RLS and `practice_topic_visits`, whose rows can only be changed through the authenticated, ownership-scoped `get_practice_topic_set(uuid)` function. Private rotation state is keyed by user and normalized filters. The first cycle uses the user's existing submitted-session history; later cycles use their own start time. The RPC returns at most seven active prompts, preserves the same set for a browser-tab visit, removes prompts after a recording has been submitted, and begins another cycle only after every matching prompt has been practised in the current cycle. If fewer than seven unpractised matches remain, it returns those remaining prompts. A filter combination with no active matches returns an empty set.
+
+Verify the columns, RLS and function after applying:
+
+```sql
+select column_name
+from information_schema.columns
+where table_schema = 'public' and table_name = 'speaking_topics'
+  and column_name in ('scenario', 'register', 'keywords');
+
+select tablename, rowsecurity
+from pg_tables
+where schemaname = 'public'
+  and tablename in ('user_topic_preferences', 'practice_topic_visits');
+
+select routine_name, security_type
+from information_schema.routines
+where routine_schema = 'public' and routine_name = 'get_practice_topic_set';
+
+select count(*) as active_curated_topics
+from public.speaking_topics where is_active;
+```
+
+Expected: three topic metadata columns, RLS enabled for both user tables, the function listed as `DEFINER`, and the active topic count increased by 71 where those stable seed IDs were not already present. SQL files are not applied remotely until executed in the target project's SQL Editor.

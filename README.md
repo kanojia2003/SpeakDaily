@@ -35,8 +35,9 @@ The SQL files are source migrations; having them in this repository does not mea
 2. [`db/migrations/20261023_recording_path_workflow.sql`](db/migrations/20261023_recording_path_workflow.sql) — session recording path and scoped upload workflow. This is safe to run after the base schema, even when the base already has the path field.
 3. [`db/migrations/20261023_gemini_evaluation.sql`](db/migrations/20261023_gemini_evaluation.sql) — server-only atomic quota and evaluation claim function.
 4. [`db/migrations/20261023_session_history.sql`](db/migrations/20261023_session_history.sql) — durable session topic-title snapshot and history support.
+5. [`db/migrations/20261024_personalized_topic_rotation.sql`](db/migrations/20261024_personalized_topic_rotation.sql) — curated topics with scenario/style/keyword metadata, private preferences, and a persisted seven-topic visit rotation.
 
-Do not re-run SQL blindly on a project with a different/older schema. Review the SQL and current database first. The scripts are designed to be rerunnable for this application's expected schema; seed conflicts do not overwrite existing topic content.
+Do not re-run SQL blindly on a project with a different/older schema. Review the SQL and current database first. The scripts are designed to be rerunnable for this application's expected schema; seed conflicts do not overwrite existing topic content. The personalized-topic migration adds 71 curated prompts (plus the original starter prompts), and creates the preference and visit tables and the authenticated `get_practice_topic_set` function. User filters are situation, speaking style, difficulty, and up to five comma-separated interest tags.
 
 After applying, use the verification queries in [`docs/security-privacy-review.md`](docs/security-privacy-review.md) to check RLS, policies, and that `speaking-audio` is private. Verify the `speaking_evaluation_usage` table and `claim_speaking_evaluation` function exist and that the function is executable only by `service_role`. RLS and SQL in the repository have not been verified against the remote database unless these steps are run there.
 

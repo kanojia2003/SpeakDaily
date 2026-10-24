@@ -4,8 +4,13 @@ import type { Database } from '../../lib/database.types'
 export type SpeakingTopic = Database['public']['Tables']['speaking_topics']['Row']
 export type SpeakingSession = Pick<
   Database['public']['Tables']['speaking_sessions']['Row'],
-  'id' | 'topic_id' | 'status' | 'duration_seconds' | 'recording_path' | 'created_at'
+  'id' | 'topic_id' | 'topic_title' | 'status' | 'duration_seconds' | 'recording_path' | 'created_at'
 >
+export type TopicScenario = Database['public']['Tables']['user_topic_preferences']['Row']['scenario']
+export type TopicRegister = Database['public']['Tables']['user_topic_preferences']['Row']['register']
+export type TopicDifficulty = Database['public']['Tables']['user_topic_preferences']['Row']['difficulty']
+export type TopicPreferences = { scenario: TopicScenario; register: TopicRegister; difficulty: TopicDifficulty; interests: string[] }
+export const defaultTopicPreferences: TopicPreferences = { scenario: 'any', register: 'any', difficulty: 'any', interests: [] }
 export type PracticeSummary = {
   recentSessions: SpeakingSession[]
   totalSessions: number
@@ -14,19 +19,25 @@ export type PracticeSummary = {
 
 type Client = SupabaseClient<Database>
 
-export async function fetchActiveTopics(client: Client) {
-  try {
-    const { data, error } = await client
-      .from('speaking_topics')
-      .select('id, title, description, prompt, difficulty, category, is_active, created_at')
-      .eq('is_active', true)
-      .order('created_at', { ascending: true })
+export async function fetchTopicPreferences(client: Client, userId: string): Promise<TopicPreferences> {
+  const { data, error } = await client.from('user_topic_preferences')
+    .select('scenario, register, difficulty, interests').eq('user_id', userId).maybeSingle()
+  if (error) throw new Error('Your topic preferences could not be loaded. Apply the personalized topic migration and try again.')
+  return data ? { scenario: data.scenario, register: data.register, difficulty: data.difficulty, interests: data.interests } : defaultTopicPreferences
+}
 
-    if (error) return { topics: [] as SpeakingTopic[], error: 'Active topics could not be loaded. Check your connection and try again.' }
-    return { topics: data ?? [], error: null }
-  } catch {
-    return { topics: [] as SpeakingTopic[], error: 'Active topics could not be loaded. Check your connection and try again.' }
-  }
+export async function saveTopicPreferences(client: Client, userId: string, preferences: TopicPreferences) {
+  const { error } = await client.from('user_topic_preferences').upsert({
+    user_id: userId, scenario: preferences.scenario, register: preferences.register,
+    difficulty: preferences.difficulty, interests: preferences.interests,
+  }, { onConflict: 'user_id' })
+  if (error) throw new Error('Your topic preferences could not be saved. Check your connection and try again.')
+}
+
+export async function fetchPracticeTopicSet(client: Client, visitId: string) {
+  const { data, error } = await client.rpc('get_practice_topic_set', { p_visit_id: visitId })
+  if (error) throw new Error('Personalized topics could not be loaded. Apply the personalized topic migration and try again.')
+  return data ?? []
 }
 
 export async function fetchActiveTopic(client: Client, topicId: string) {
@@ -37,7 +48,7 @@ export async function fetchActiveTopic(client: Client, topicId: string) {
   try {
     const { data, error } = await client
       .from('speaking_topics')
-      .select('id, title, description, prompt, difficulty, category, is_active, created_at')
+      .select('id, title, description, prompt, difficulty, category, scenario, register, keywords, is_active, created_at')
       .eq('id', topicId)
       .eq('is_active', true)
       .maybeSingle()
@@ -54,7 +65,7 @@ export async function fetchPracticeSummary(client: Client, userId: string) {
     const [recent, total, completed] = await Promise.all([
       client
         .from('speaking_sessions')
-        .select('id, topic_id, status, duration_seconds, recording_path, created_at')
+        .select('id, topic_id, topic_title, status, duration_seconds, recording_path, created_at')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(5),

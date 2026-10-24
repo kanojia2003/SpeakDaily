@@ -6,6 +6,7 @@ Reviewed 2026-10-23. This is an implementation review, not a security audit, pen
 
 - `profiles`, `speaking_topics`, and `speaking_sessions` have RLS enabled in `db/schema.sql`. Users can read their own profile and sessions, edit only their profile display name, create only their own pending session, and attach a recording only to an eligible owned pending session. Session status, transcript, feedback, and processing errors are backend-owned.
 - `speaking_evaluation_usage` is created with RLS enabled and no client policy or grants in `db/migrations/20261023_gemini_evaluation.sql`; service role is the only granted role.
+- `user_topic_preferences` is owner-scoped with RLS; users can read and change only their own filters. `practice_topic_visits` is owner-readable and writable only through the authenticated, ownership-scoped RPC. `user_topic_rotation_state` has RLS enabled and no ordinary client grants or policies. These objects are created by `db/migrations/20261024_personalized_topic_rotation.sql`.
 - The `speaking-audio` bucket is explicitly private, size-limited to 10 MiB, and has owner-prefix Storage policies. The evaluation function additionally requires `{authenticated-user-uuid}/{session-uuid}/{random-uuid}.{supported-extension}`.
 - `evaluate-speaking` verifies the bearer token with Auth, scopes session claims and updates to that user, validates request JSON (2 KiB limit and one allowed field), validates the UUID, duration range, stored path, file size, MIME and file signature, and atomically claims a pending session before calling Gemini. Its persistent limit is five claims per user per UTC day. Processing and completed records are idempotent; failed attempts are terminal.
 - Gemini and service-role credentials are read only inside Edge Functions. No `VITE_` secret is used. `.gitignore` excludes real `.env*` files and preserves `.env.example`.
@@ -44,7 +45,7 @@ supabase functions deploy evaluate-speaking --project-ref ebxnyxplenwmkssjxqgc
 supabase functions deploy delete-account --project-ref ebxnyxplenwmkssjxqgc
 ```
 
-Apply `db/schema.sql`, `db/migrations/20261023_recording_path_workflow.sql`, `db/migrations/20261023_gemini_evaluation.sql`, and `db/migrations/20261023_session_history.sql` in order in the Supabase SQL Editor when they have not already been applied. These source files do not update the remote project by themselves.
+Apply `db/schema.sql`, `db/migrations/20261023_recording_path_workflow.sql`, `db/migrations/20261023_gemini_evaluation.sql`, `db/migrations/20261023_session_history.sql`, and `db/migrations/20261024_personalized_topic_rotation.sql` in order in the Supabase SQL Editor when they have not already been applied. These source files do not update the remote project by themselves.
 
 ## Remote verification queries
 
@@ -56,6 +57,7 @@ from pg_class c
 join pg_namespace n on n.oid = c.relnamespace
 where n.nspname = 'public'
   and c.relkind in ('r', 'p')
+  and c.relname in ('profiles', 'speaking_topics', 'speaking_sessions', 'speaking_evaluation_usage', 'user_topic_preferences', 'practice_topic_visits', 'user_topic_rotation_state')
   and not c.relrowsecurity
 order by c.relname;
 
@@ -66,7 +68,7 @@ where id = 'speaking-audio';
 select schemaname, tablename, policyname, roles, cmd, qual, with_check
 from pg_policies
 where (schemaname = 'public' and tablename in
-  ('profiles', 'speaking_topics', 'speaking_sessions', 'speaking_evaluation_usage'))
+  ('profiles', 'speaking_topics', 'speaking_sessions', 'speaking_evaluation_usage', 'user_topic_preferences', 'practice_topic_visits', 'user_topic_rotation_state'))
    or (schemaname = 'storage' and tablename = 'objects')
 order by schemaname, tablename, policyname;
 ```

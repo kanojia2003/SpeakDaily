@@ -105,7 +105,7 @@ function LandingPage() {
 }
 
 function AuthenticatedApp() {
-  const { client } = useAuth()
+  const { client, session } = useAuth()
   const navigate = useNavigate()
   const [signOutError, setSignOutError] = useState<string | null>(null)
 
@@ -115,6 +115,9 @@ function AuthenticatedApp() {
     try {
       const { error } = await client.auth.signOut()
       if (error) throw error
+      if (session?.user.id) {
+        try { window.sessionStorage.removeItem(`speakdaily-topic-visit:${session.user.id}`) } catch { /* sign-out still completed */ }
+      }
       navigate('/signin', { replace: true, state: { message: 'You have been signed out.' } })
     } catch {
       setSignOutError('We could not sign you out. Check your connection and try again.')

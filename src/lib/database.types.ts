@@ -23,6 +23,9 @@ export type Database = {
           prompt: string
           difficulty: 'beginner' | 'intermediate' | 'advanced'
           category: string
+          scenario: 'everyday' | 'interview' | 'workplace' | 'presentation' | 'social' | 'travel' | 'learning' | 'creative' | 'opinion'
+          register: 'neutral' | 'formal' | 'informal'
+          keywords: string[]
           is_active: boolean
           created_at: string
         }
@@ -33,6 +36,9 @@ export type Database = {
           prompt: string
           difficulty: 'beginner' | 'intermediate' | 'advanced'
           category: string
+          scenario: 'everyday' | 'interview' | 'workplace' | 'presentation' | 'social' | 'travel' | 'learning' | 'creative' | 'opinion'
+          register: 'neutral' | 'formal' | 'informal'
+          keywords: string[]
           is_active?: boolean
           created_at?: string
         }
@@ -43,6 +49,9 @@ export type Database = {
           prompt?: string
           difficulty?: 'beginner' | 'intermediate' | 'advanced'
           category?: string
+          scenario?: 'everyday' | 'interview' | 'workplace' | 'presentation' | 'social' | 'travel' | 'learning' | 'creative' | 'opinion'
+          register?: 'neutral' | 'formal' | 'informal'
+          keywords?: string[]
           is_active?: boolean
           created_at?: string
         }
@@ -101,9 +110,44 @@ export type Database = {
           },
         ]
       }
+      user_topic_preferences: {
+        Row: {
+          user_id: string
+          scenario: 'any' | 'everyday' | 'interview' | 'workplace' | 'presentation' | 'social' | 'travel' | 'learning' | 'creative' | 'opinion'
+          register: 'any' | 'neutral' | 'formal' | 'informal'
+          difficulty: 'any' | 'beginner' | 'intermediate' | 'advanced'
+          interests: string[]
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          user_id: string
+          scenario?: 'any' | 'everyday' | 'interview' | 'workplace' | 'presentation' | 'social' | 'travel' | 'learning' | 'creative' | 'opinion'
+          register?: 'any' | 'neutral' | 'formal' | 'informal'
+          difficulty?: 'any' | 'beginner' | 'intermediate' | 'advanced'
+          interests?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          user_id?: string
+          scenario?: 'any' | 'everyday' | 'interview' | 'workplace' | 'presentation' | 'social' | 'travel' | 'learning' | 'creative' | 'opinion'
+          register?: 'any' | 'neutral' | 'formal' | 'informal'
+          difficulty?: 'any' | 'beginner' | 'intermediate' | 'advanced'
+          interests?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: { [_ in never]: never }
-    Functions: { [_ in never]: never }
+    Functions: {
+      get_practice_topic_set: {
+        Args: { p_visit_id: string }
+        Returns: Database['public']['Tables']['speaking_topics']['Row'][]
+      }
+    }
     Enums: { [_ in never]: never }
     CompositeTypes: { [_ in never]: never }
   }

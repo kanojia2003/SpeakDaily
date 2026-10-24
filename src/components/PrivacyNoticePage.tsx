@@ -21,7 +21,7 @@ export function PrivacyNoticePage() {
         </section>
         <section>
           <h2>What is saved</h2>
-          <p>SpeakDaily saves your account profile, session topic and timing, status, transcript, scores, and written feedback in Supabase so you can return to results later. The transcript and feedback remain until you delete your account or the service operator removes them.</p>
+          <p>SpeakDaily saves your account profile, your topic filters and interests, session topic and timing, status, transcript, scores, and written feedback in Supabase so it can personalize prompts and you can return to results later. The transcript and feedback remain until you delete your account or the service operator removes them.</p>
         </section>
         <section>
           <h2>Audio retention</h2>

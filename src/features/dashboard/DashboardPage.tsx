@@ -1,7 +1,8 @@
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../auth/AuthContext'
 import { useDashboardData } from './useDashboardData'
-import type { SpeakingSession, SpeakingTopic } from './data'
+import type { SpeakingSession, SpeakingTopic, TopicPreferences } from './data'
 import { sessionStatusLabel } from '../sessions/sessionData'
 
 function formatSessionDate(value: string) {
@@ -10,18 +11,108 @@ function formatSessionDate(value: string) {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(date)
 }
 
-function sessionTopicName(session: SpeakingSession, topics: SpeakingTopic[]) {
-  if (!session.topic_id) return 'Unprompted session'
-  return topics.find((topic) => topic.id === session.topic_id)?.title ?? 'Topic unavailable'
+function sessionTopicName(session: SpeakingSession) {
+  return session.topic_title ?? (session.topic_id ? 'Topic unavailable' : 'Unprompted session')
 }
 
 function TopicMeta({ topic }: { topic: SpeakingTopic }) {
   return <p className="topic-meta">{topic.difficulty} <span aria-hidden="true">·</span> {topic.category}</p>
 }
 
+function TopicPreferencesForm({
+  preferences,
+  loading,
+  saving,
+  error,
+  onSave,
+}: {
+  preferences: TopicPreferences
+  loading: boolean
+  saving: boolean
+  error: string | null
+  onSave: (preferences: TopicPreferences) => Promise<boolean>
+}) {
+  const [draft, setDraft] = useState(preferences)
+  const [interestText, setInterestText] = useState(preferences.interests.join(', '))
+  const [validationError, setValidationError] = useState<string | null>(null)
+  const [saveConfirmed, setSaveConfirmed] = useState(false)
+
+  useEffect(() => {
+    setDraft(preferences)
+    setInterestText(preferences.interests.join(', '))
+  }, [preferences])
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const interests = [...new Set(interestText.split(',').map((interest) => interest.trim().toLocaleLowerCase()).filter(Boolean))]
+    if (interests.length > 5 || interests.some((interest) => interest.length > 32)) {
+      setValidationError('Enter up to five interests, with no more than 32 characters each.')
+      return
+    }
+    setValidationError(null)
+    setSaveConfirmed(await onSave({ ...draft, interests }))
+  }
+
+  return (
+    <details className="topic-preferences">
+      <summary>Personalize your topics</summary>
+      <p className="dashboard-muted">Choose the kind of conversation you want to practise. Your choices are saved to your account.</p>
+      {loading ? <p className="dashboard-loading" role="status">Loading your preferences…</p> : (
+        <form className="profile-form topic-preferences-form" onSubmit={(event) => { void handleSubmit(event) }}>
+          <label className="form-field">
+            <span>Practice situation</span>
+            <select disabled={saving} onChange={(event) => { setSaveConfirmed(false); setDraft((value) => ({ ...value, scenario: event.target.value as TopicPreferences['scenario'] })) }} value={draft.scenario}>
+              <option value="any">Any situation</option>
+              <option value="everyday">Everyday conversation</option>
+              <option value="interview">Job interviews</option>
+              <option value="workplace">Work and corporate settings</option>
+              <option value="presentation">Presentations</option>
+              <option value="social">Friends and social situations</option>
+              <option value="travel">Travel</option>
+              <option value="learning">Learning and reflection</option>
+              <option value="creative">Creative ideas</option>
+              <option value="opinion">Opinions and discussion</option>
+            </select>
+          </label>
+          <label className="form-field">
+            <span>Speaking style</span>
+            <select disabled={saving} onChange={(event) => { setSaveConfirmed(false); setDraft((value) => ({ ...value, register: event.target.value as TopicPreferences['register'] })) }} value={draft.register}>
+              <option value="any">Any style</option>
+              <option value="neutral">Neutral</option>
+              <option value="formal">Formal</option>
+              <option value="informal">Informal</option>
+            </select>
+          </label>
+          <label className="form-field">
+            <span>Difficulty</span>
+            <select disabled={saving} onChange={(event) => { setSaveConfirmed(false); setDraft((value) => ({ ...value, difficulty: event.target.value as TopicPreferences['difficulty'] })) }} value={draft.difficulty}>
+              <option value="any">Any level</option>
+              <option value="beginner">Beginner</option>
+              <option value="intermediate">Intermediate</option>
+              <option value="advanced">Advanced</option>
+            </select>
+          </label>
+          <label className="form-field">
+            <span>Interests <span className="field-optional">(optional, comma-separated)</span></span>
+            <input autoComplete="off" disabled={saving} maxLength={180} onChange={(event) => { setSaveConfirmed(false); setInterestText(event.target.value) }} placeholder="travel, food, learning" value={interestText} />
+            <span className="field-help">Use tags such as travel, food, work, friends, technology, or learning.</span>
+          </label>
+          {validationError && <p className="form-error" role="alert">{validationError}</p>}
+          {error && <p className="form-error" role="alert">{error}</p>}
+          {saveConfirmed && <p className="form-notice" role="status">Your preferences are saved and your topic list has been refreshed.</p>}
+          <button className="button-link" disabled={saving} type="submit">{saving ? 'Saving preferences…' : 'Save preferences'}</button>
+        </form>
+      )}
+    </details>
+  )
+}
+
 export function DashboardPage() {
   const { session, profile, profileState, profileError } = useAuth()
-  const { topics, topicLoading, topicError, practice, practiceLoading, practiceError, retry } = useDashboardData()
+  const {
+    topics, topicLoading, topicError, practice, practiceLoading, practiceError, retry,
+    preferences, preferencesLoading, preferencesSaving, preferencesError, updatePreferences,
+  } = useDashboardData()
   const displayName = profile?.display_name?.trim() || session?.user.email?.split('@')[0]
   const featured = topics[0]
 
@@ -44,6 +135,14 @@ export function DashboardPage() {
           </div>
         </div>
 
+        <TopicPreferencesForm
+          error={preferencesError}
+          loading={preferencesLoading}
+          onSave={updatePreferences}
+          preferences={preferences}
+          saving={preferencesSaving}
+        />
+
         {topicLoading ? (
           <p className="dashboard-loading" role="status">Loading active topics…</p>
         ) : topicError ? (
@@ -52,9 +151,12 @@ export function DashboardPage() {
             <button className="text-button" onClick={retry} type="button">Try again</button>
           </div>
         ) : !featured ? (
-          <p className="dashboard-empty">There are no active topics available right now. Check back later.</p>
+          <p className="dashboard-empty">No topics match these preferences yet. Choose “Any” for a filter or remove interests to broaden your list.</p>
         ) : (
           <>
+            <p className="topic-set-note">{topics.length === 7
+              ? 'Your next seven prompts, matched to your preferences.'
+              : `Showing ${topics.length} new matching ${topics.length === 1 ? 'prompt' : 'prompts'}. Practised topics return after this matching set is complete.`}</p>
             <article className="featured-topic">
               <p className="featured-label">Featured topic</p>
               <TopicMeta topic={featured} />
@@ -69,7 +171,7 @@ export function DashboardPage() {
 
             {topics.length > 1 && (
               <div className="topic-list-wrap">
-                <h3 className="list-heading">More active topics</h3>
+                <h3 className="list-heading">Other prompts in this set</h3>
                 <ul className="topic-list">
                   {topics.slice(1).map((topic) => (
                     <li key={topic.id}>
@@ -106,7 +208,7 @@ export function DashboardPage() {
             {practice.recentSessions.map((item) => (
               <li key={item.id}>
                 <Link className="dashboard-session-link" to={`/app/sessions/${item.id}`}>
-                  <span><span className="session-topic">{sessionTopicName(item, topics)}</span><span className="session-date">{formatSessionDate(item.created_at)}</span></span>
+                  <span><span className="session-topic">{sessionTopicName(item)}</span><span className="session-date">{formatSessionDate(item.created_at)}</span></span>
                   <span className="session-result">
                     <span className={`session-status status-${item.status}`}>{sessionStatusLabel(item.status, item.recording_path)}</span>
                     {item.duration_seconds > 0 && <span className="session-duration">{item.duration_seconds < 60 ? 'Under a minute' : `${Math.round(item.duration_seconds / 60)} min`}</span>}
