@@ -30,12 +30,12 @@ export async function fetchTopicTitles(client: Client, topicIds: string[]) {
   return new Map((data ?? []).map((topic) => [topic.id, topic.title]))
 }
 
-export function sessionStatusLabel(status: SavedSession['status']) {
+export function sessionStatusLabel(status: SavedSession['status'], recordingPath?: string | null) {
   switch (status) {
-    case 'pending': return 'Pending'
-    case 'processing': return 'Processing'
-    case 'completed': return 'Completed'
-    case 'failed': return 'Failed'
+    case 'pending': return recordingPath ? 'Ready for analysis' : 'Incomplete session'
+    case 'processing': return 'Analysing your recording'
+    case 'completed': return 'Feedback ready'
+    case 'failed': return 'Analysis failed'
   }
 }
 

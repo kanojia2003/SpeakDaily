@@ -4,7 +4,7 @@ import type { Database } from '../../lib/database.types'
 export type SpeakingTopic = Database['public']['Tables']['speaking_topics']['Row']
 export type SpeakingSession = Pick<
   Database['public']['Tables']['speaking_sessions']['Row'],
-  'id' | 'topic_id' | 'status' | 'duration_seconds' | 'created_at'
+  'id' | 'topic_id' | 'status' | 'duration_seconds' | 'recording_path' | 'created_at'
 >
 export type PracticeSummary = {
   recentSessions: SpeakingSession[]
@@ -54,7 +54,7 @@ export async function fetchPracticeSummary(client: Client, userId: string) {
     const [recent, total, completed] = await Promise.all([
       client
         .from('speaking_sessions')
-        .select('id, topic_id, status, duration_seconds, created_at')
+        .select('id, topic_id, status, duration_seconds, recording_path, created_at')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(5),

@@ -53,7 +53,7 @@ export function SessionHistoryPage() {
                   <span className="session-topic">{item.topic_title ?? (item.topic_id ? titles.get(item.topic_id) ?? 'Topic unavailable' : 'Unprompted session')}</span>
                   <span className="session-date">{formatSessionDate(item.created_at)} <span aria-hidden="true">·</span> {formatSessionDuration(item.duration_seconds)}</span>
                 </span>
-                <span className={`session-status status-${item.status}`}>{sessionStatusLabel(item.status)}</span>
+                <span className={`session-status status-${item.status}`}>{sessionStatusLabel(item.status, item.recording_path)}</span>
               </Link>
             </li>)}
           </ul>

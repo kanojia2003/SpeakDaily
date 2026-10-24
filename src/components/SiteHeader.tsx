@@ -1,6 +1,8 @@
 import { LinkButton } from './LinkButton'
+import { useAuth } from '../auth/AuthContext'
 
 export function SiteHeader() {
+  const { session } = useAuth()
   return (
     <header className="site-header" id="top">
       <div className="page-shell header-inner">
@@ -9,7 +11,7 @@ export function SiteHeader() {
           <a href="#how-it-works">How it works</a>
           <a href="#topics">Today’s prompt</a>
           <a href="/signin">Sign in</a>
-          <LinkButton href="#exercise" className="header-cta">Try a prompt <span aria-hidden="true">↗</span></LinkButton>
+          <LinkButton href={session ? '/app' : '/signup'} className="header-cta">{session ? 'Go to your practice' : 'Start free practice'} <span aria-hidden="true">↗</span></LinkButton>
         </nav>
       </div>
     </header>

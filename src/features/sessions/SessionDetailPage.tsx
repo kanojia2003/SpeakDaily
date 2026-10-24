@@ -71,7 +71,7 @@ export function SessionDetailPage() {
             <p className="eyebrow">Saved speaking session</p>
             <h1>{topicTitle}</h1>
             <p>{formatSessionDate(record.created_at)} <span aria-hidden="true">·</span> {formatSessionDuration(record.duration_seconds)}</p>
-            <span className={`session-status status-${record.status}`}>{sessionStatusLabel(record.status)}</span>
+            <span className={`session-status status-${record.status}`}>{sessionStatusLabel(record.status, record.recording_path)}</span>
           </header>
           {actionError && <p className="form-error" role="alert">{actionError}</p>}
           {record.status === 'pending' && <section className="session-state-panel">
@@ -83,7 +83,7 @@ export function SessionDetailPage() {
           {record.status === 'failed' && <section className="session-state-panel"><h2>This session could not be completed.</h2><p>{record.error_message?.includes('quota') ? 'The daily analysis limit was reached. Start a new recording after the limit resets.' : 'This analysis attempt is finished. The recording is removed after processing, and retrying could repeat a provider charge. Start a new recording to try again.'}</p></section>}
           {record.status === 'completed' && feedback ? <EvaluationResults transcript={record.transcript ?? ''} feedback={feedback} />
             : record.status === 'completed' && <p className="form-error" role="alert">Saved feedback could not be validated, so it is not displayed.</p>}
-          <Link className="text-link session-dashboard-link" to="/app">Return to your dashboard <span aria-hidden="true">↗</span></Link>
+          <Link className="text-link session-dashboard-link" to="/app">{record.status === 'failed' ? 'Choose a new topic and start another session' : 'Return to your dashboard'} <span aria-hidden="true">↗</span></Link>
         </> : null}
     </div>
   )

@@ -2,36 +2,38 @@ import { ExercisePreview } from './components/ExercisePreview'
 import { LinkButton } from './components/LinkButton'
 import { Section } from './components/Section'
 import { SiteHeader } from './components/SiteHeader'
-import { BrowserRouter, Link, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Link, Navigate, NavLink, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
 import { AuthPage } from './auth/AuthPage'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { ProtectedRoute } from './auth/ProtectedRoute'
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState } from 'react'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { SpeakingExercisePage } from './features/dashboard/SpeakingExercisePage'
 import { SessionHistoryPage } from './features/sessions/SessionHistoryPage'
 import { SessionDetailPage } from './features/sessions/SessionDetailPage'
 import { PrivacyNoticePage } from './components/PrivacyNoticePage'
+import { AccountSettingsPage } from './features/account/AccountSettingsPage'
 
 const steps = [
   {
     number: '01',
     title: 'Choose a prompt',
-    description: 'Start with a simple question about your day, an idea, or something you care about.',
+    description: 'Choose a daily English-speaking topic and read its prompt.',
   },
   {
     number: '02',
     title: 'Say it out loud',
-    description: 'Take a couple of minutes to shape your thoughts in your own words.',
+    description: 'Record your spoken English for up to two minutes, then listen back before submitting.',
   },
   {
     number: '03',
-    title: 'Come back tomorrow',
-    description: 'A small, regular practice makes speaking feel more familiar over time.',
+    title: 'Review and return',
+    description: 'Get an AI-generated transcript and English-learning feedback, then revisit your saved results in practice history.',
   },
 ]
 
 function LandingPage() {
+  const { session } = useAuth()
   return (
     <>
       <SiteHeader />
@@ -40,13 +42,14 @@ function LandingPage() {
           <div className="hero-copy">
             <p className="eyebrow">A little practice goes a long way</p>
             <h1 id="hero-title">Make room for <em>your voice.</em></h1>
-            <p className="hero-description">Two minutes a day. Speak with more confidence.</p>
+            <p className="hero-description">Choose a topic, record up to two minutes of spoken English, and submit it for an AI transcript and English-learning feedback. Review your results and revisit past sessions whenever you like.</p>
             <div className="hero-actions">
-              <LinkButton href="#exercise">Try a speaking prompt <span aria-hidden="true">↗</span></LinkButton>
+              <LinkButton href={session ? '/app' : '/signup'}>{session ? 'Go to your practice' : 'Start free practice'} <span aria-hidden="true">↗</span></LinkButton>
               <a className="text-link" href="#how-it-works">See how it works</a>
-              <a className="text-link" href="/signup">Create an account</a>
+              <Link className="text-link" to="/signin">Sign in</Link>
+              {!session && <Link className="text-link" to="/signup">Create account</Link>}
             </div>
-            <p className="hero-note">A calm, simple way to make speaking practice part of your day.</p>
+            <p className="hero-note">Practice at your own pace. Your recording is uploaded only when you choose to submit it.</p>
           </div>
           <div className="hero-aside" aria-hidden="true">
             <span className="aside-rule" />
@@ -57,7 +60,8 @@ function LandingPage() {
         <Section id="exercise" className="exercise-section" ariaLabelledBy="exercise-heading">
           <div className="section-heading">
             <p className="eyebrow">A sample to get started</p>
-            <h2 id="exercise-heading">Your next two minutes.</h2>
+            <h2 id="exercise-heading">A question to answer aloud.</h2>
+            <p className="dashboard-lede">This sample prompt shows the kind of question you can practise with. In the application, record your response, review it, and submit it for transcription and English-learning feedback.</p>
           </div>
           <ExercisePreview />
         </Section>
@@ -83,8 +87,8 @@ function LandingPage() {
         <section className="topic-band" id="topics" aria-labelledby="topic-heading">
           <div className="page-shell topic-inner">
             <p className="eyebrow">A prompt for today</p>
-            <h2 id="topic-heading">Tell a story about a small thing that made your day better.</h2>
-            <a href="#exercise" className="text-link">Use this prompt <span aria-hidden="true">↗</span></a>
+            <h2 id="topic-heading">What is something you learned recently that surprised you?</h2>
+            <a href="#exercise" className="text-link">View the sample exercise <span aria-hidden="true">↗</span></a>
           </div>
         </section>
       </main>
@@ -97,100 +101,6 @@ function LandingPage() {
         </div>
       </footer>
     </>
-  )
-}
-
-function ProfileSettings() {
-  const { profile, profileState, profileError, updateDisplayName, client } = useAuth()
-  const navigate = useNavigate()
-  const [displayName, setDisplayName] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
-  const [deleting, setDeleting] = useState(false)
-  const [deleteError, setDeleteError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (profileState === 'ready') setDisplayName(profile?.display_name ?? '')
-  }, [profile, profileState])
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const name = displayName.trim()
-    if (!name) {
-      setError('Enter a display name to save.')
-      setSaved(false)
-      return
-    }
-    setSaving(true)
-    setError(null)
-    setSaved(false)
-    try {
-      await updateDisplayName(name)
-      setSaved(true)
-    } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : 'Your profile could not be updated. Try again.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  async function handleDeleteAccount() {
-    if (!client || deleting) return
-    const confirmed = window.confirm('Permanently delete your SpeakDaily account, saved sessions, transcripts, feedback, and private recordings? This cannot be undone.')
-    if (!confirmed) return
-    setDeleting(true)
-    setDeleteError(null)
-    try {
-      const { data, error: deletionError } = await client.functions.invoke('delete-account', {
-        body: { confirm_delete: true },
-      })
-      if (deletionError || !data || typeof data !== 'object' || data.deleted !== true) {
-        throw new Error('account_deletion_incomplete')
-      }
-      await client.auth.signOut({ scope: 'local' }).catch(() => undefined)
-      navigate('/', { replace: true })
-    } catch {
-      setDeleteError('We could not confirm account deletion. Some private recordings or app data may already have been removed. If you can still sign in, retrying deletion is safe.')
-    } finally {
-      setDeleting(false)
-    }
-  }
-
-  return (
-    <section className="profile-panel" aria-labelledby="profile-heading">
-      <p className="eyebrow">Your account</p>
-      <h2 id="profile-heading">Profile details</h2>
-      {profileState === 'loading' && <p role="status">Loading your profile…</p>}
-      {profileState === 'error' && <p className="form-error" role="alert">{profileError}</p>}
-      {profileState === 'ready' && (
-        <form className="profile-form" onSubmit={handleSubmit}>
-          <label className="form-field" htmlFor="display-name">
-            <span>Display name</span>
-            <input
-              id="display-name"
-              autoComplete="name"
-              maxLength={80}
-              onChange={(event) => { setDisplayName(event.target.value); setSaved(false) }}
-              required
-              value={displayName}
-            />
-          </label>
-          {error && <p className="form-error" role="alert">{error}</p>}
-          {saved && <p className="form-notice" role="status">Your display name has been updated.</p>}
-          <button className="button-link" disabled={saving} type="submit">
-            {saving ? 'Saving…' : 'Save display name'}
-          </button>
-        </form>
-      )}
-      <div className="account-privacy-actions">
-        {deleteError && <p className="form-error" role="alert">{deleteError}</p>}
-        <p>Deleting your account removes its saved practice data and private recordings. Read the <Link to="/privacy">privacy notice</Link> for details about provider processing and backup limits.</p>
-        <button className="danger-button" disabled={deleting} onClick={() => { void handleDeleteAccount() }} type="button">
-          {deleting ? 'Deleting account…' : 'Delete account'}
-        </button>
-      </div>
-    </section>
   )
 }
 
@@ -217,8 +127,9 @@ function AuthenticatedApp() {
         <div className="page-shell app-header-inner">
           <Link className="wordmark" to="/app" aria-label="SpeakDaily overview">Speak<span>Daily</span></Link>
           <nav className="app-nav" aria-label="Application navigation">
-            <Link className="app-nav-current" to="/app" aria-current="page">Overview</Link>
-            <Link to="/app/history">History</Link>
+            <NavLink end className={({ isActive }) => isActive ? 'app-nav-current' : undefined} to="/app">Overview</NavLink>
+            <NavLink className={({ isActive }) => isActive ? 'app-nav-current' : undefined} to="/app/history">History</NavLink>
+            <NavLink className={({ isActive }) => isActive ? 'app-nav-current' : undefined} to="/app/settings">Settings</NavLink>
             <button className="signout-button" onClick={handleSignOut} type="button">Sign out</button>
           </nav>
         </div>
@@ -250,10 +161,11 @@ export function App() {
           <Route path="/signup" element={<AuthPage mode="signup" />} />
           <Route path="/privacy" element={<PrivacyNoticePage />} />
           <Route path="/app" element={<ProtectedRoute><AuthenticatedApp /></ProtectedRoute>}>
-            <Route index element={<DashboardPage profileSettings={<ProfileSettings />} />} />
+            <Route index element={<DashboardPage />} />
             <Route path="exercise/:topicId" element={<SpeakingExercisePage />} />
             <Route path="history" element={<SessionHistoryPage />} />
             <Route path="sessions/:sessionId" element={<SessionDetailPage />} />
+            <Route path="settings" element={<AccountSettingsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
-import type { ReactNode } from 'react'
 import { useAuth } from '../../auth/AuthContext'
 import { useDashboardData } from './useDashboardData'
 import type { SpeakingSession, SpeakingTopic } from './data'
+import { sessionStatusLabel } from '../sessions/sessionData'
 
 function formatSessionDate(value: string) {
   const date = new Date(value)
@@ -15,20 +15,11 @@ function sessionTopicName(session: SpeakingSession, topics: SpeakingTopic[]) {
   return topics.find((topic) => topic.id === session.topic_id)?.title ?? 'Topic unavailable'
 }
 
-function sessionStatus(status: SpeakingSession['status']) {
-  switch (status) {
-    case 'completed': return 'Completed'
-    case 'processing': return 'Processing'
-    case 'failed': return 'Could not finish'
-    case 'pending': return 'In progress'
-  }
-}
-
 function TopicMeta({ topic }: { topic: SpeakingTopic }) {
   return <p className="topic-meta">{topic.difficulty} <span aria-hidden="true">·</span> {topic.category}</p>
 }
 
-export function DashboardPage({ profileSettings }: { profileSettings: ReactNode }) {
+export function DashboardPage() {
   const { session, profile, profileState, profileError } = useAuth()
   const { topics, topicLoading, topicError, practice, practiceLoading, practiceError, retry } = useDashboardData()
   const displayName = profile?.display_name?.trim() || session?.user.email?.split('@')[0]
@@ -39,33 +30,17 @@ export function DashboardPage({ profileSettings }: { profileSettings: ReactNode 
       <header className="dashboard-heading">
         <p className="eyebrow">Your SpeakDaily space</p>
         <h1>{displayName ? <>Welcome, <em>{displayName}</em>.</> : 'Welcome back.'}</h1>
-        <p className="dashboard-lede">A little practice, whenever you’re ready.</p>
+        <p className="dashboard-lede">Choose a topic, record your response, and review your English feedback.</p>
       </header>
 
       {profileState === 'error' && <p className="dashboard-inline-error" role="alert">{profileError}</p>}
-
-      <section className="progress-section" aria-labelledby="progress-title">
-        <h2 id="progress-title" className="eyebrow">Your practice so far</h2>
-        {practiceError ? (
-          <div className="dashboard-error" role="alert">
-            <p>{practiceError}</p>
-            <button className="text-button" onClick={retry} type="button">Try again</button>
-          </div>
-        ) : practiceLoading ? (
-          <p className="dashboard-loading" role="status">Loading your progress…</p>
-        ) : practice ? (
-          <dl className="progress-metrics">
-            <div><dt>Sessions started</dt><dd>{practice.totalSessions}</dd></div>
-            <div><dt>Sessions completed</dt><dd>{practice.completedSessions}</dd></div>
-          </dl>
-        ) : null}
-      </section>
 
       <section className="topic-section" aria-labelledby="topics-title">
         <div className="dashboard-section-heading">
           <div>
             <p className="eyebrow">A prompt to begin with</p>
             <h2 id="topics-title">Choose a topic.</h2>
+            <p className="dashboard-lede">Start speaking opens the topic’s prompt and recording instructions. Record when you’re ready, review your response, then submit it for an AI transcript and English-learning feedback.</p>
           </div>
         </div>
 
@@ -85,6 +60,7 @@ export function DashboardPage({ profileSettings }: { profileSettings: ReactNode 
               <TopicMeta topic={featured} />
               <h3>{featured.title}</h3>
               <p className="featured-description">{featured.description}</p>
+              <p className="featured-description">Talk about the question in your own words. You can include a reason, an example, or a short story.</p>
               <blockquote>{featured.prompt}</blockquote>
               <Link className="button-link" to={`/app/exercise/${featured.id}`}>
                 Start speaking <span aria-hidden="true">↗</span>
@@ -132,7 +108,7 @@ export function DashboardPage({ profileSettings }: { profileSettings: ReactNode 
                 <Link className="dashboard-session-link" to={`/app/sessions/${item.id}`}>
                   <span><span className="session-topic">{sessionTopicName(item, topics)}</span><span className="session-date">{formatSessionDate(item.created_at)}</span></span>
                   <span className="session-result">
-                    <span className={`session-status status-${item.status}`}>{sessionStatus(item.status)}</span>
+                    <span className={`session-status status-${item.status}`}>{sessionStatusLabel(item.status, item.recording_path)}</span>
                     {item.duration_seconds > 0 && <span className="session-duration">{item.duration_seconds < 60 ? 'Under a minute' : `${Math.round(item.duration_seconds / 60)} min`}</span>}
                   </span>
                 </Link>
@@ -147,7 +123,22 @@ export function DashboardPage({ profileSettings }: { profileSettings: ReactNode 
         )}
       </section>
 
-      {profileSettings}
+      <section className="progress-section" aria-labelledby="progress-title">
+        <h2 id="progress-title" className="eyebrow">Your practice so far</h2>
+        {practiceError ? (
+          <div className="dashboard-error" role="alert">
+            <p>{practiceError}</p>
+            <button className="text-button" onClick={retry} type="button">Try again</button>
+          </div>
+        ) : practiceLoading ? (
+          <p className="dashboard-loading" role="status">Loading your progress…</p>
+        ) : practice ? (
+          <dl className="progress-metrics">
+            <div><dt>Sessions started</dt><dd>{practice.totalSessions}<span className="metric-explanation">Saved attempts, including ones awaiting analysis.</span></dd></div>
+            <div><dt>Sessions completed</dt><dd>{practice.completedSessions}<span className="metric-explanation">Sessions with saved feedback ready to review.</span></dd></div>
+          </dl>
+        ) : null}
+      </section>
     </div>
   )
 }

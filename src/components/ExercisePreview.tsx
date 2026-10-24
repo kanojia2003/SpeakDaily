@@ -10,7 +10,7 @@ export function ExercisePreview() {
         <p>Take a breath, then speak in your own words. You might begin with:</p>
         <p className="starter-line">“I didn’t expect to learn that…”</p>
       </div>
-      <p className="exercise-footnote">No perfect answer needed. This is a prompt to help you begin.</p>
+      <p className="exercise-footnote">Answer this question aloud in your own words. In the application, you can record your response, listen back, then submit it for an AI-generated transcript and English-learning feedback.</p>
     </article>
   )
 }
