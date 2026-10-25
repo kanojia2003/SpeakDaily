@@ -46,3 +46,28 @@ from public.speaking_topics where is_active;
 ```
 
 Expected: three topic metadata columns, RLS enabled for both user tables, the function listed as `DEFINER`, and the active topic count increased by 71 where those stable seed IDs were not already present. SQL files are not applied remotely until executed in the target project's SQL Editor.
+
+## Daily communication practice
+
+After the personalized-topic migration, apply `20261025_communication_practice.sql`. It creates owner-readable generated lesson rows and a server-only two-per-UTC-day question-generation quota. The `reserve_communication_practice_run` RPC serializes requests by user and request key before Gemini is called; repeating a key returns the original lesson rather than generating another set. The `finish_communication_practice_run` RPC stores exactly four validated questions or a safe failure state. Generated answers reference the stored lesson and question index from `speaking_sessions`; the existing `evaluate-speaking` function loads the question from that owner-scoped lesson before asking Gemini to assess the recording. Each answer uses the existing five-per-user-per-UTC-day evaluation quota and private recording workflow.
+
+After applying, verify the private lesson table and session link columns:
+
+```sql
+select tablename, rowsecurity
+from pg_tables
+where schemaname = 'public'
+  and tablename in ('communication_practice_runs', 'communication_practice_generation_usage');
+
+select column_name
+from information_schema.columns
+where table_schema = 'public' and table_name = 'speaking_sessions'
+  and column_name in ('communication_practice_run_id', 'communication_question_index');
+
+select routine_name, security_type
+from information_schema.routines
+where routine_schema = 'public'
+  and routine_name in ('reserve_communication_practice_run', 'finish_communication_practice_run');
+```
+
+Expected: RLS enabled on both tables; both session link columns exist; both reservation/finalization functions are `DEFINER` and executable only by `service_role`. Deploy `generate-communication-practice` and redeploy `evaluate-speaking` after applying the migration. The lesson generation endpoint uses the existing server-only `GEMINI_API_KEY` and `GEMINI_MODEL`; it receives the selected scenario/style/difficulty and optional context. The request is limited to four short questions and has a 30-second provider timeout. Generated question sets are persisted; generation failures are terminal for that idempotency key so a retry cannot silently trigger another paid request. SQL files are not applied remotely until run in the target project's SQL Editor.

@@ -13,6 +13,8 @@ import { SessionHistoryPage } from './features/sessions/SessionHistoryPage'
 import { SessionDetailPage } from './features/sessions/SessionDetailPage'
 import { PrivacyNoticePage } from './components/PrivacyNoticePage'
 import { AccountSettingsPage } from './features/account/AccountSettingsPage'
+import { CommunicationPracticeSetupPage } from './features/communication-practice/CommunicationPracticeSetupPage'
+import { CommunicationPracticePage } from './features/communication-practice/CommunicationPracticePage'
 
 const steps = [
   {
@@ -131,6 +133,7 @@ function AuthenticatedApp() {
           <Link className="wordmark" to="/app" aria-label="SpeakDaily overview">Speak<span>Daily</span></Link>
           <nav className="app-nav" aria-label="Application navigation">
             <NavLink end className={({ isActive }) => isActive ? 'app-nav-current' : undefined} to="/app">Overview</NavLink>
+            <NavLink className={({ isActive }) => isActive ? 'app-nav-current' : undefined} to="/app/communication">Daily practice</NavLink>
             <NavLink className={({ isActive }) => isActive ? 'app-nav-current' : undefined} to="/app/history">History</NavLink>
             <NavLink className={({ isActive }) => isActive ? 'app-nav-current' : undefined} to="/app/settings">Settings</NavLink>
             <button className="signout-button" onClick={handleSignOut} type="button">Sign out</button>
@@ -166,6 +169,8 @@ export function App() {
           <Route path="/app" element={<ProtectedRoute><AuthenticatedApp /></ProtectedRoute>}>
             <Route index element={<DashboardPage />} />
             <Route path="exercise/:topicId" element={<SpeakingExercisePage />} />
+            <Route path="communication" element={<CommunicationPracticeSetupPage />} />
+            <Route path="communication/:runId" element={<CommunicationPracticePage />} />
             <Route path="history" element={<SessionHistoryPage />} />
             <Route path="sessions/:sessionId" element={<SessionDetailPage />} />
             <Route path="settings" element={<AccountSettingsPage />} />

@@ -127,6 +127,10 @@ export function DashboardPage() {
       {profileState === 'error' && <p className="dashboard-inline-error" role="alert">{profileError}</p>}
 
       <section className="topic-section" aria-labelledby="topics-title">
+        <div className="communication-entry">
+          <div><p className="eyebrow">A guided lesson</p><h2>Practise everyday communication.</h2><p>Choose a situation and style to generate four questions, record your answers, and review feedback one response at a time.</p></div>
+          <Link className="secondary-button" to="/app/communication">Set up daily practice <span aria-hidden="true">↗</span></Link>
+        </div>
         <div className="dashboard-section-heading">
           <div>
             <p className="eyebrow">A prompt to begin with</p>

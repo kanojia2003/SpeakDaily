@@ -3,5 +3,8 @@ project_id = "ebxnyxplenwmkssjxqgc"
 [functions.evaluate-speaking]
 verify_jwt = true
 
+[functions.generate-communication-practice]
+verify_jwt = true
+
 [functions.delete-account]
 verify_jwt = true

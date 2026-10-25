@@ -39,7 +39,22 @@ function extensionForMimeType(mimeType: string) {
   return baseType ? extensionByType[baseType] : undefined
 }
 
-export function RecordingWorkflow({ topic }: { topic: SpeakingTopic }) {
+export type CommunicationQuestionContext = {
+  runId: string
+  questionIndex: number
+  title: string
+  prompt: string
+}
+
+export function RecordingWorkflow({
+  topic,
+  communication,
+  onContinue,
+}: {
+  topic: SpeakingTopic | null
+  communication?: CommunicationQuestionContext
+  onContinue?: () => void
+}) {
   const { client, session } = useAuth()
   const recorder = useAudioRecorder()
   const [submitting, setSubmitting] = useState(false)
@@ -130,7 +145,7 @@ export function RecordingWorkflow({ topic }: { topic: SpeakingTopic }) {
 
   async function submitRecording() {
     if (submissionLock.current || submitting || evaluationSessionId) return
-    if (!client || !session || !recorder.recording) {
+    if (!client || !session || !recorder.recording || (!topic && !communication)) {
       setSubmissionError('Sign in again and make a new recording before submitting.')
       return
     }
@@ -164,7 +179,15 @@ export function RecordingWorkflow({ topic }: { topic: SpeakingTopic }) {
 
       const { data: createdSession, error: createError } = await client
         .from('speaking_sessions')
-        .insert({ user_id: authData.user.id, topic_id: topic.id, duration_seconds: recorder.elapsedSeconds })
+        .insert({
+          user_id: authData.user.id,
+          topic_id: topic?.id ?? null,
+          duration_seconds: recorder.elapsedSeconds,
+          ...(communication ? {
+            communication_practice_run_id: communication.runId,
+            communication_question_index: communication.questionIndex,
+          } : {}),
+        })
         .select('id')
         .single()
       if (createError || !createdSession) {
@@ -260,15 +283,18 @@ export function RecordingWorkflow({ topic }: { topic: SpeakingTopic }) {
           <p>Your recording is saved privately, but analysis has not started.</p>
           {evaluationError && <p className="form-error" role="alert">{evaluationErrorMessage(evaluationError)}</p>}
           <button className="button-link" disabled={checkingStatus} onClick={() => { void runEvaluation(evaluationSessionId) }} type="button">Try analysis again</button>
+          {onContinue && <button className="secondary-button communication-next-button" onClick={onContinue} type="button">Continue to the next question</button>}
         </>}
         {evaluationStatus === 'failed' && <>
           <p className="form-error" role="alert">{evaluationErrorMessage(evaluationError)}</p>
-          <p>This session is marked as unable to complete. You can record a new response from the dashboard.</p>
+          <p>This answer could not be analyzed. You can continue the lesson and return to the saved failure status later.</p>
+          {onContinue && <button className="secondary-button communication-next-button" onClick={onContinue} type="button">Continue to the next question</button>}
         </>}
         {evaluationStatus === 'completed' && feedback && transcript !== null && <>
           {evaluationError?.includes('cleanup_pending') && <p className="form-error" role="status">{evaluationErrorMessage(evaluationError)}</p>}
           <EvaluationResults transcript={transcript} feedback={feedback} />
           <Link className="text-link" to={`/app/sessions/${evaluationSessionId}`}>Open saved session results <span aria-hidden="true">↗</span></Link>
+          {onContinue && <button className="button-link communication-next-button" onClick={onContinue} type="button">Continue to the next question <span aria-hidden="true">↗</span></button>}
         </>}
         {evaluationStatus === 'completed' && !feedback && evaluationError && <p className="form-error" role="alert">{evaluationError.startsWith('The analysis result') ? evaluationError : evaluationErrorMessage(evaluationError)}</p>}
         {evaluationStatus === 'processing' && !checkingStatus && <button className="secondary-button" onClick={() => { void refreshEvaluationStatus(evaluationSessionId) }} type="button">Check analysis status</button>}

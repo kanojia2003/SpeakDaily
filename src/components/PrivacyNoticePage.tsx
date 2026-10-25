@@ -17,11 +17,12 @@ export function PrivacyNoticePage() {
         <section>
           <h2>Gemini analysis</h2>
           <p>When analysis is requested, SpeakDaily sends the audio and its practice prompt to the Google Gemini API from a server-side function. The request does not intentionally include your email or account identifier, but the audio itself may contain identifying or sensitive speech. Avoid speaking information you do not want processed by Google.</p>
+          <p>When you create a communication practice lesson, the selected situation, speaking style, difficulty, and any optional context you enter are sent to Gemini to generate four questions. The generated questions are saved with your lesson. Your answer audio and the relevant generated question are sent to Gemini only after you submit each recording for analysis.</p>
           <p>Google's handling depends on the Gemini API service and terms that apply to the project. Google's current documentation says data handling differs between paid and unpaid services; unpaid service content may be used to improve products and may be reviewed, while paid service content is not used for product improvement but may be logged for abuse monitoring. Regional terms can differ. The current terms also include age and permitted-use conditions. Review <a href="https://ai.google.dev/gemini-api/terms">Gemini API Terms</a> and <a href="https://ai.google.dev/gemini-api/docs/usage-policies">abuse monitoring</a> before using the feature. SpeakDaily has not verified this project's billing status, region, audience eligibility, or terms for public use.</p>
         </section>
         <section>
           <h2>What is saved</h2>
-          <p>SpeakDaily saves your account profile, your topic filters and interests, session topic and timing, status, transcript, scores, and written feedback in Supabase so it can personalize prompts and you can return to results later. The transcript and feedback remain until you delete your account or the service operator removes them.</p>
+          <p>SpeakDaily saves your account profile, topic filters and interests, communication lesson selections, optional context and generated questions, session topic and timing, status, transcript, scores, and written feedback in Supabase so you can return to practice and results later. These records remain until you delete your account or the service operator removes them.</p>
         </section>
         <section>
           <h2>Audio retention</h2>

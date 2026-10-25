@@ -6,6 +6,10 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+type CommunicationScenario = 'everyday' | 'interview' | 'workplace' | 'presentation' | 'social' | 'travel' | 'learning' | 'creative' | 'opinion'
+type CommunicationRegister = 'neutral' | 'formal' | 'informal'
+type CommunicationDifficulty = 'beginner' | 'intermediate' | 'advanced'
+
 export type Database = {
   public: {
     Tables: {
@@ -69,6 +73,8 @@ export type Database = {
           feedback: Json | null
           error_message: string | null
           recording_path: string | null
+          communication_practice_run_id: string | null
+          communication_question_index: number | null
           created_at: string
           updated_at: string
         }
@@ -83,6 +89,8 @@ export type Database = {
           feedback?: Json | null
           error_message?: string | null
           recording_path?: string | null
+          communication_practice_run_id?: string | null
+          communication_question_index?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -97,6 +105,8 @@ export type Database = {
           feedback?: Json | null
           error_message?: string | null
           recording_path?: string | null
+          communication_practice_run_id?: string | null
+          communication_question_index?: number | null
           created_at?: string
           updated_at?: string
         }
@@ -108,7 +118,59 @@ export type Database = {
             referencedRelation: 'speaking_topics'
             referencedColumns: ['id']
           },
+          {
+            foreignKeyName: 'speaking_sessions_communication_run_fkey'
+            columns: ['communication_practice_run_id', 'user_id']
+            isOneToOne: false
+            referencedRelation: 'communication_practice_runs'
+            referencedColumns: ['id', 'user_id']
+          },
         ]
+      }
+      communication_practice_runs: {
+        Row: {
+          id: string
+          user_id: string
+          request_key: string
+          scenario: CommunicationScenario
+          register: CommunicationRegister
+          difficulty: CommunicationDifficulty
+          context: string | null
+          status: 'generating' | 'ready' | 'failed'
+          questions: Json
+          error_code: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          request_key: string
+          scenario: CommunicationScenario
+          register: CommunicationRegister
+          difficulty: CommunicationDifficulty
+          context?: string | null
+          status?: 'generating' | 'ready' | 'failed'
+          questions?: Json
+          error_code?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          request_key?: string
+          scenario?: CommunicationScenario
+          register?: CommunicationRegister
+          difficulty?: CommunicationDifficulty
+          context?: string | null
+          status?: 'generating' | 'ready' | 'failed'
+          questions?: Json
+          error_code?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       user_topic_preferences: {
         Row: {
@@ -143,6 +205,14 @@ export type Database = {
     }
     Views: { [_ in never]: never }
     Functions: {
+      reserve_communication_practice_run: {
+        Args: { p_user_id: string; p_request_key: string; p_scenario: string; p_register: string; p_difficulty: string; p_context: string }
+        Returns: Json
+      }
+      finish_communication_practice_run: {
+        Args: { p_run_id: string; p_user_id: string; p_questions: Json | null; p_error_code: string | null }
+        Returns: boolean
+      }
       get_practice_topic_set: {
         Args: { p_visit_id: string }
         Returns: Database['public']['Tables']['speaking_topics']['Row'][]

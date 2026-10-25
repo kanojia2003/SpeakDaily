@@ -346,7 +346,9 @@ Deno.serve(async (request) => {
 
     const { data: sessionRow, error: sessionError } = await admin
       .from("speaking_sessions")
-      .select("id, user_id, topic_id, status, duration_seconds, recording_path")
+      .select(
+        "id, user_id, topic_id, status, duration_seconds, recording_path, communication_practice_run_id, communication_question_index",
+      )
       .eq("id", sessionId)
       .eq("user_id", authData.user.id)
       .eq("status", "processing")
@@ -360,7 +362,44 @@ Deno.serve(async (request) => {
 
     let topicTitle = "Open speaking practice";
     let topicPrompt = "Speak about a topic of your choice.";
-    if (sessionRow.topic_id) {
+    if (sessionRow.communication_practice_run_id) {
+      const runId = sessionRow.communication_practice_run_id;
+      const questionIndex = sessionRow.communication_question_index;
+      if (
+        typeof runId !== "string" || !validUuid(runId) ||
+        typeof questionIndex !== "number" || !Number.isInteger(questionIndex) ||
+        questionIndex < 0 || questionIndex > 3 || sessionRow.topic_id !== null
+      ) {
+        await failSession("session_invalid");
+        return jsonResponse(request, 409, { error: "session_ineligible" });
+      }
+      const { data: run, error: runError } = await admin
+        .from("communication_practice_runs")
+        .select("questions, status")
+        .eq("id", runId)
+        .eq("user_id", authData.user.id)
+        .eq("status", "ready")
+        .maybeSingle();
+      const questions = run?.questions;
+      const assigned = Array.isArray(questions)
+        ? questions[questionIndex]
+        : null;
+      if (
+        runError || !assigned || typeof assigned !== "object" ||
+        typeof (assigned as Record<string, unknown>).title !== "string" ||
+        typeof (assigned as Record<string, unknown>).prompt !== "string"
+      ) {
+        await failSession("communication_question_unavailable");
+        return jsonResponse(request, 422, {
+          error: "communication_question_unavailable",
+        });
+      }
+      topicTitle = (assigned as Record<string, string>).title;
+      topicPrompt = (assigned as Record<string, string>).prompt;
+    } else if (sessionRow.communication_question_index !== null) {
+      await failSession("session_invalid");
+      return jsonResponse(request, 409, { error: "session_ineligible" });
+    } else if (sessionRow.topic_id) {
       const { data: topic, error: topicError } = await admin
         .from("speaking_topics")
         .select("title, prompt")

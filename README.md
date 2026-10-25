@@ -36,6 +36,7 @@ The SQL files are source migrations; having them in this repository does not mea
 3. [`db/migrations/20261023_gemini_evaluation.sql`](db/migrations/20261023_gemini_evaluation.sql) — server-only atomic quota and evaluation claim function.
 4. [`db/migrations/20261023_session_history.sql`](db/migrations/20261023_session_history.sql) — durable session topic-title snapshot and history support.
 5. [`db/migrations/20261024_personalized_topic_rotation.sql`](db/migrations/20261024_personalized_topic_rotation.sql) — curated topics with scenario/style/keyword metadata, private preferences, and a persisted seven-topic visit rotation.
+6. [`db/migrations/20261025_communication_practice.sql`](db/migrations/20261025_communication_practice.sql) — private generated lesson records, per-question session links, server-side generation idempotency and daily quota, and generated-question context for evaluation.
 
 Do not re-run SQL blindly on a project with a different/older schema. Review the SQL and current database first. The scripts are designed to be rerunnable for this application's expected schema; seed conflicts do not overwrite existing topic content. The personalized-topic migration adds 71 curated prompts (plus the original starter prompts), and creates the preference and visit tables and the authenticated `get_practice_topic_set` function. User filters are situation, speaking style, difficulty, and up to five comma-separated interest tags.
 
@@ -74,10 +75,11 @@ Supabase injects its function credentials, including the service-role credential
 
 ```sh
 supabase functions deploy evaluate-speaking --project-ref ebxnyxplenwmkssjxqgc
+supabase functions deploy generate-communication-practice --project-ref ebxnyxplenwmkssjxqgc
 supabase functions deploy delete-account --project-ref ebxnyxplenwmkssjxqgc
 ```
 
-Both functions require JWT verification in [`supabase/config.toml`](supabase/config.toml) and perform authorization checks. Evaluation applies an atomic limit of five claimed analyses per user per UTC day. Repeated calls against processing/completed sessions are idempotent; failed attempts are terminal, so a new recording is needed and counts against quota. This is a per-account limit, not a global spend cap or protection from multiple-account abuse. Set billing alerts and independent provider/project budget controls where available.
+All functions require JWT verification in [`supabase/config.toml`](supabase/config.toml) and perform authorization checks. Evaluation applies an atomic limit of five claimed analyses per user per UTC day. Communication lesson generation allows two new question sets per user per UTC day and is idempotent for a repeated request key. Each lesson has four questions; answers use the same five-per-day evaluation quota. Repeated calls against processing/completed sessions are idempotent; failed attempts are terminal, so a new recording is needed and counts against quota. These are per-account limits, not a global spend cap or protection from multiple-account abuse. Set billing alerts and independent provider/project budget controls where available.
 
 Google's Gemini API terms and data handling depend on paid/unpaid service status and can change. Verify current Gemini terms, abuse-monitoring/logging behavior, region, age/audience requirements, consent, and any contractual requirements for the intended product before sending real user recordings. SpeakDaily does not establish provider compliance on your behalf.
 
@@ -87,7 +89,8 @@ Google's Gemini API terms and data handling depend on paid/unpaid service status
 npm run typecheck
 npm run build
 deno test supabase/functions/evaluate-speaking/validation_test.ts
-deno fmt --check supabase/functions/evaluate-speaking/index.ts supabase/functions/evaluate-speaking/validation.ts supabase/functions/evaluate-speaking/validation_test.ts supabase/functions/delete-account/index.ts
+deno test --no-check supabase/functions/generate-communication-practice/validation_test.ts
+deno fmt --check supabase/functions/evaluate-speaking/index.ts supabase/functions/evaluate-speaking/validation.ts supabase/functions/evaluate-speaking/validation_test.ts supabase/functions/generate-communication-practice/index.ts supabase/functions/generate-communication-practice/validation.ts supabase/functions/generate-communication-practice/validation_test.ts supabase/functions/delete-account/index.ts
 deno check --no-lock supabase/functions/evaluate-speaking/index.ts
 ```
 

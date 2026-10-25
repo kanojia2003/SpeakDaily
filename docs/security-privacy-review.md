@@ -7,8 +7,10 @@ Reviewed 2026-10-23. This is an implementation review, not a security audit, pen
 - `profiles`, `speaking_topics`, and `speaking_sessions` have RLS enabled in `db/schema.sql`. Users can read their own profile and sessions, edit only their profile display name, create only their own pending session, and attach a recording only to an eligible owned pending session. Session status, transcript, feedback, and processing errors are backend-owned.
 - `speaking_evaluation_usage` is created with RLS enabled and no client policy or grants in `db/migrations/20261023_gemini_evaluation.sql`; service role is the only granted role.
 - `user_topic_preferences` is owner-scoped with RLS; users can read and change only their own filters. `practice_topic_visits` is owner-readable and writable only through the authenticated, ownership-scoped RPC. `user_topic_rotation_state` has RLS enabled and no ordinary client grants or policies. These objects are created by `db/migrations/20261024_personalized_topic_rotation.sql`.
+- `communication_practice_runs` is owner-readable with RLS and no ordinary-client write grant. Generated question generation reservations and usage are service-role-only, with a per-user daily quota and request-key idempotency. Session links use a composite foreign key that includes the owner id; session insertion checks ownership, ready lesson state, and question index. These objects are created by `db/migrations/20261025_communication_practice.sql`.
 - The `speaking-audio` bucket is explicitly private, size-limited to 10 MiB, and has owner-prefix Storage policies. The evaluation function additionally requires `{authenticated-user-uuid}/{session-uuid}/{random-uuid}.{supported-extension}`.
 - `evaluate-speaking` verifies the bearer token with Auth, scopes session claims and updates to that user, validates request JSON (2 KiB limit and one allowed field), validates the UUID, duration range, stored path, file size, MIME and file signature, and atomically claims a pending session before calling Gemini. Its persistent limit is five claims per user per UTC day. Processing and completed records are idempotent; failed attempts are terminal.
+- `generate-communication-practice` verifies the caller, validates the bounded filter/context payload, reserves a lesson under a server-only per-user lock before Gemini is called, and persists exactly four server-validated questions. New generation is limited to two sets per user per UTC day. The evaluator loads a generated prompt from the caller-owned, ready lesson rather than trusting prompt text from the browser. Each response uses the existing evaluation quota.
 - Gemini and service-role credentials are read only inside Edge Functions. No `VITE_` secret is used. `.gitignore` excludes real `.env*` files and preserves `.env.example`.
 - Logs in the evaluation function contain operational status, session ID, and safe error codes; they do not log request audio, transcript, provider response, or API key. User-facing errors are generic.
 - Evaluation success and handled failure paths attempt to remove audio. If removal fails, a safe cleanup marker is stored and the object remains private. Account deletion also enumerates the authenticated user's Storage prefix, removes files in chunks, then deletes only that user's sessions, quota rows, profile, and Auth account. It does not accept a user ID or arbitrary path from the caller.
@@ -42,10 +44,11 @@ Set `GEMINI_API_KEY`, `GEMINI_MODEL`, and `SPEAKDAILY_ALLOWED_ORIGINS` only in S
 
 ```sh
 supabase functions deploy evaluate-speaking --project-ref ebxnyxplenwmkssjxqgc
+supabase functions deploy generate-communication-practice --project-ref ebxnyxplenwmkssjxqgc
 supabase functions deploy delete-account --project-ref ebxnyxplenwmkssjxqgc
 ```
 
-Apply `db/schema.sql`, `db/migrations/20261023_recording_path_workflow.sql`, `db/migrations/20261023_gemini_evaluation.sql`, `db/migrations/20261023_session_history.sql`, and `db/migrations/20261024_personalized_topic_rotation.sql` in order in the Supabase SQL Editor when they have not already been applied. These source files do not update the remote project by themselves.
+Apply `db/schema.sql`, `db/migrations/20261023_recording_path_workflow.sql`, `db/migrations/20261023_gemini_evaluation.sql`, `db/migrations/20261023_session_history.sql`, `db/migrations/20261024_personalized_topic_rotation.sql`, and `db/migrations/20261025_communication_practice.sql` in order in the Supabase SQL Editor when they have not already been applied. These source files do not update the remote project by themselves.
 
 ## Remote verification queries
 
@@ -57,7 +60,7 @@ from pg_class c
 join pg_namespace n on n.oid = c.relnamespace
 where n.nspname = 'public'
   and c.relkind in ('r', 'p')
-  and c.relname in ('profiles', 'speaking_topics', 'speaking_sessions', 'speaking_evaluation_usage', 'user_topic_preferences', 'practice_topic_visits', 'user_topic_rotation_state')
+  and c.relname in ('profiles', 'speaking_topics', 'speaking_sessions', 'speaking_evaluation_usage', 'user_topic_preferences', 'practice_topic_visits', 'user_topic_rotation_state', 'communication_practice_runs', 'communication_practice_generation_usage')
   and not c.relrowsecurity
 order by c.relname;
 
@@ -68,11 +71,11 @@ where id = 'speaking-audio';
 select schemaname, tablename, policyname, roles, cmd, qual, with_check
 from pg_policies
 where (schemaname = 'public' and tablename in
-  ('profiles', 'speaking_topics', 'speaking_sessions', 'speaking_evaluation_usage', 'user_topic_preferences', 'practice_topic_visits', 'user_topic_rotation_state'))
+  ('profiles', 'speaking_topics', 'speaking_sessions', 'speaking_evaluation_usage', 'user_topic_preferences', 'practice_topic_visits', 'user_topic_rotation_state', 'communication_practice_runs', 'communication_practice_generation_usage'))
    or (schemaname = 'storage' and tablename = 'objects')
 order by schemaname, tablename, policyname;
 ```
 
 ## Checks and remaining verification
 
-Local validation of output shape, score bounds, transcript-correction matching, audio signatures, scoped paths, and duration range is in `supabase/functions/evaluate-speaking/validation_test.ts`. Remote RLS isolation, private-bucket cross-user denial, secret placement, Gemini usage terms, provider-side retention, backups, and account deletion have not been verified against the configured Supabase project. They require deployment access and test accounts. The Edge Function source imports Supabase JS over HTTPS; Deno type checking requires network access to resolve that dependency.
+Local validation of evaluation output, audio paths/signatures/duration and generated communication question payloads is in each function's `validation_test.ts`. Remote RLS isolation, private-bucket cross-user denial, secret placement, Gemini usage terms, provider-side retention, backups, and account deletion have not been verified against the configured Supabase project. They require deployment access and test accounts. The Edge Function source imports Supabase JS over HTTPS; Deno type checking requires network access to resolve that dependency.
